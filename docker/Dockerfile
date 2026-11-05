@@ -29,9 +29,11 @@ ENV PATH="/workspace/miniconda3/bin:${PATH}"
 RUN conda init bash
 
 # create and activate conda environment
-RUN conda create -n unique3d python=3.10 && echo "source activate unique3d" > ~/.bashrc
+RUN conda create -y -n unique3d -c conda-forge --override-channels python=3.10 && \
+    echo "source activate unique3d" > ~/.bashr
 ENV PATH /workspace/miniconda3/envs/unique3d/bin:$PATH
-
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 RUN conda install Ninja
 RUN conda install cuda -c nvidia/label/cuda-12.1.0 -y
 

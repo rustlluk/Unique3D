@@ -27,7 +27,7 @@ init_config:
   # for self attention ref
   init_self_attn_ref: False
   self_attn_ref_position: "attn1"
-  self_attn_ref_other_model_name: "lambdalabs/sd-image-variations-diffusers"
+  self_attn_ref_other_model_name: "lambda/sd-image-variations-diffusers"
   self_attn_ref_pixel_wise_crosspond: False
   self_attn_ref_effect_on: "all"
   

@@ -1,4 +1,7 @@
+import os
+import gc
 import torch
+from contextlib import contextmanager
 from typing import List
 from dataclasses import dataclass
 from app.utils import rgba_to_rgb
@@ -14,8 +17,35 @@ class FakeAccelerator:
     device: torch.device = torch.device("cuda")
 
 
-def init_trainers(cfg_path: str, weight_dtype: torch.dtype, extras: dict):
-    accelerator = FakeAccelerator()
+def get_diffusion_device() -> str:
+    """GPU for the multiview/normal diffusion models. Defaults to the last GPU so the
+    first one is left for the SD refiner, upsampler and mesh ops. Override with UNIQUE3D_DIFFUSION_DEVICE."""
+    env = os.environ.get("UNIQUE3D_DIFFUSION_DEVICE")
+    if env:
+        return env
+    return f"cuda:{max(torch.cuda.device_count() - 1, 0)}"
+
+
+# With a single GPU the pipelines are parked in CPU RAM and moved to the GPU only while running.
+SWAP_TO_CPU = os.environ.get("UNIQUE3D_SWAP_TO_CPU", "1" if torch.cuda.device_count() <= 1 else "0") == "1"
+
+
+@contextmanager
+def gpu_scope(pipeline):
+    if not SWAP_TO_CPU:
+        yield
+        return
+    pipeline.to(pipeline._gpu_device)
+    try:
+        yield
+    finally:
+        pipeline.to("cpu")
+        gc.collect()
+        torch.cuda.empty_cache()
+
+
+def init_trainers(cfg_path: str, weight_dtype: torch.dtype, extras: dict, device="cuda"):
+    accelerator = FakeAccelerator(device=torch.device(device))
     cfg: ExprimentConfig = load_config(ExprimentConfig, cfg_path, extras)
     init_config: AttnConfig = load_config(AttnConfig, cfg.init_config)
     configurable_unet = ConfigurableUNet2DConditionModel(init_config, weight_dtype)
@@ -48,12 +78,12 @@ def process_text(trainer, pipeline, img, guidance_scale=2.):
     return images[0]
 
 
-def load_pipeline(config_path, ckpt_path, pipeline_filter=lambda x: True, weight_dtype = torch.bfloat16):
+def load_pipeline(config_path, ckpt_path, pipeline_filter=lambda x: True, weight_dtype = torch.bfloat16, device=None):
     training_config = config_path
     load_from_checkpoint = ckpt_path
     extras = []
-    device = "cuda"
-    trainers, configurable_unet = init_trainers(training_config, weight_dtype, extras)
+    device = device or get_diffusion_device()
+    trainers, configurable_unet = init_trainers(training_config, weight_dtype, extras, device)
     shared_modules = dict()
     for trainer in trainers:
         shared_modules = trainer.init_shared_modules(shared_modules)
@@ -72,4 +102,9 @@ def load_pipeline(config_path, ckpt_path, pipeline_filter=lambda x: True, weight
             pipeline.set_progress_bar_config(disable=False)
             trainer_out = trainer
     pipeline = pipeline.to(device)
+    pipeline._gpu_device = device
+    if SWAP_TO_CPU:
+        pipeline.to("cpu")
+        gc.collect()
+        torch.cuda.empty_cache()
     return trainer_out, pipeline

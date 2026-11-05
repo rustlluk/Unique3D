@@ -2,13 +2,13 @@ if __name__ == "__main__":
     import os
     import sys
     sys.path.append(os.curdir)
-    if 'CUDA_VISIBLE_DEVICES' not in os.environ:
-        os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    # if 'CUDA_VISIBLE_DEVICES' not in os.environ:
+    #     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     os.environ['TRANSFORMERS_OFFLINE']='0'
     os.environ['DIFFUSERS_OFFLINE']='0'
     os.environ['HF_HUB_OFFLINE']='0'
     os.environ['GRADIO_ANALYTICS_ENABLED']='False'
-    os.environ['HF_ENDPOINT']='https://hf-mirror.com'
+    os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
     import torch
     torch.set_float32_matmul_precision('medium')
     torch.backends.cuda.matmul.allow_tf32 = True
@@ -38,7 +38,7 @@ def launch(
     gradio_root="",
 ):
     model_zoo.init_models()
-        
+
     with gr.Blocks(
         title=_TITLE,
         theme=gr.themes.Monochrome(),
@@ -52,7 +52,7 @@ def launch(
     launch_args = {}
     if listen:
         launch_args["server_name"] = "0.0.0.0"
-        
+
     demo.queue(default_concurrency_limit=1).launch(
         server_port=None if port == 0 else port,
         share=share,

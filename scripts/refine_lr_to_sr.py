@@ -43,7 +43,7 @@ def run_sr_fast(source_pils, scale=4):
             tile_pad=10,
             pre_pad=0,
             half=True,
-            gpu_id=0,
+            gpu_id=None,
         )
     ret_pils = []
     for idx, img_pils in enumerate(source_pils):

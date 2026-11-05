@@ -17,7 +17,7 @@ providers = [
     ('CUDAExecutionProvider', {
         'device_id': 0,
         'arena_extend_strategy': 'kSameAsRequested',
-        'gpu_mem_limit': 8 * 1024 * 1024 * 1024,
+        'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
         'cudnn_conv_algo_search': 'HEURISTIC',
     })
 ]

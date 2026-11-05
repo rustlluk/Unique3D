@@ -65,7 +65,7 @@ def load_image_encoder():
     )
     return image_encoder
 
-def load_common_sd15_pipe(base_model=DEFAULT_BASE_MODEL, device="auto", controlnet=None, ip_adapter=False, plus_model=True, torch_dtype=torch.float16, model_cpu_offload_seq=None, enable_sequential_cpu_offload=False, vae_slicing=False, pipeline_class=None, **kwargs):
+def load_common_sd15_pipe(base_model=DEFAULT_BASE_MODEL, device="auto", controlnet=None, ip_adapter=False, plus_model=True, torch_dtype=torch.float16, model_cpu_offload_seq=None, enable_sequential_cpu_offload=False, model_cpu_offload=False, vae_slicing=False, pipeline_class=None, **kwargs):
     model_kwargs = dict(
         torch_dtype=torch_dtype, 
         device_map=device,
@@ -118,10 +118,11 @@ def load_common_sd15_pipe(base_model=DEFAULT_BASE_MODEL, device="auto", controln
     
     if enable_sequential_cpu_offload:
         pipe.enable_sequential_cpu_offload()
+    elif model_cpu_offload:
+        # weights stay in CPU RAM and visit the GPU only while the pipeline runs
+        pipe.enable_model_cpu_offload()
     else:
         pipe = pipe.to("cuda")
-        pass
-        # pipe.enable_model_cpu_offload()
     if vae_slicing:
         pipe.enable_vae_slicing()
         
