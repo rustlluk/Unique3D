@@ -217,27 +217,45 @@ def srgb_to_linear(c_srgb):
     return c_linear.clip(0, 1.)
 
 
+import numpy as np
+import trimesh
+
 def save_py3dmesh_with_trimesh_fast(meshes: Meshes, save_glb_path, apply_sRGB_to_LinearRGB=True):
     # convert from pytorch3d meshes to trimesh mesh
     vertices = meshes.verts_packed().cpu().float().numpy()
     triangles = meshes.faces_packed().cpu().long().numpy()
     np_color = meshes.textures.verts_features_packed().cpu().float().numpy()
-    if save_glb_path.endswith(".glb"):
+    
+    if save_glb_path.endswith(".ply"):
         # rotate 180 along +Y
         vertices[:, [0, 2]] = -vertices[:, [0, 2]]
 
     if apply_sRGB_to_LinearRGB:
         np_color = srgb_to_linear(np_color)
+        
     assert vertices.shape[0] == np_color.shape[0]
     assert np_color.shape[1] == 3
     assert 0 <= np_color.min() and np_color.max() <= 1, f"min={np_color.min()}, max={np_color.max()}"
-    mesh = trimesh.Trimesh(vertices=vertices, faces=triangles, vertex_colors=np_color)
+    
+    # --- FIX STARTS HERE ---
+    # Convert the 0.0-1.0 float colors into 0-255 integers
+    np_color_uint8 = np.clip(np_color * 255.0, 0, 255).astype(np.uint8)
+    
+    # Pass the uint8 colors to Trimesh instead of the float colors
+    mesh = trimesh.Trimesh(vertices=vertices, faces=triangles, vertex_colors=np_color_uint8)
     mesh.remove_unreferenced_vertices()
-    # save mesh
-    mesh.export(save_glb_path)
-    if save_glb_path.endswith(".glb"):
-        fix_vert_color_glb(save_glb_path)
-    print(f"saving to {save_glb_path}")
+    
+    # Automatically save a .ply file specifically for MakeYourBrick
+    ply_path = save_glb_path.replace(".glb", ".ply")
+    mesh.export(ply_path)
+    print(f"saving LEGO-ready PLY to {ply_path}")
+    # --- FIX ENDS HERE ---
+
+    # save original GLB
+    #mesh.export(save_glb_path)
+    #if save_glb_path.endswith(".glb"):
+    #    fix_vert_color_glb(save_glb_path)
+    #print(f"saving to {save_glb_path}")
 
 
 def save_glb_and_video(save_mesh_prefix: str, meshes: Meshes, with_timestamp=True, dist=3.5, azim_offset=180, resolution=512, fov_in_degrees=1 / 1.15, cam_type="ortho", view_padding=60, export_video=True) -> Tuple[str, str]:
